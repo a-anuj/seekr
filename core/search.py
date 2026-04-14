@@ -63,6 +63,10 @@ def search_files(filters: dict, root=None):
                     start, end = filters["time"]
                     if not (start <= mtime < end):
                         continue
+                # folder filter (NEW)
+                if filters.get("folder"):
+                    if filters["folder"].lower() not in path.lower():
+                        continue
 
                 results.append((path, mtime_ts))
 
@@ -116,6 +120,11 @@ def fast_search(filters: dict):
         if filters["time"]:
             start, end = filters["time"]
             if not (start <= mtime < end):
+                continue
+
+        # folder filter (NEW)
+        if filters.get("folder"):
+            if filters["folder"].lower() not in path.lower():
                 continue
 
         results.append((path, mtime_ts))
