@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
-from core.parser import parse_query
+from core.router import get_filters
 from core.search import search_files, fast_search
 
 
@@ -94,7 +94,7 @@ class SeekrApp(QWidget):
         self.results.clear()
         self.results.addItem("🔍 Searching...")
 
-        filters = parse_query(query)
+        filters = get_filters(query)
 
         self.worker = SearchWorker(filters)
         self.worker.finished.connect(self.display_results)
