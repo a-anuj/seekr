@@ -24,14 +24,17 @@ def extract_time(query: str):
     now = datetime.now()
 
     if "today" in query:
-        return now
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
     if "yesterday" in query:
-        return now - timedelta(days=1)
+        yesterday = now - timedelta(days=1)
+        return yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+
     if "day before yesterday" in query:
-        return now - timedelta(days=2)
+        day = now - timedelta(days=2)
+        return day.replace(hour=0, minute=0, second=0, microsecond=0)
 
     return None
-
 
 def extract_name(query: str):
     words = query.split()
