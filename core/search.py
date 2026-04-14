@@ -2,6 +2,17 @@ import os
 from datetime import datetime
 
 
+EXCLUDE_DIRS = {
+    ".cache",
+    ".git",
+    "node_modules",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "env",
+    ".local",
+}
+
 def search_files(filters: dict, root=None):
     if root is None:
         root = os.path.expanduser("~")
@@ -9,6 +20,7 @@ def search_files(filters: dict, root=None):
     results = []
 
     for root_dir, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
         for file in files:
             path = os.path.join(root_dir, file)
 
