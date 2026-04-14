@@ -58,7 +58,8 @@ def search_files(filters: dict, root=None):
 
                 # time filter
                 if filters["time"]:
-                    if mtime < filters["time"]:
+                    start, end = filters["time"]
+                    if not (start <= mtime < end):
                         continue
 
                 results.append((path, mtime_ts))
