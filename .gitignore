@@ -1,3 +1,4 @@
 build/
 seekr.egg-info/
 */__pycache__/*
+.env
