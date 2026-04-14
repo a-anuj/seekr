@@ -1,5 +1,7 @@
 import os
 from datetime import datetime
+import subprocess
+
 
 # folders to scan (ONLY these)
 ALLOWED_ROOT_DIRS = {
@@ -65,6 +67,59 @@ def search_files(filters: dict, root=None):
                 results.append((path, mtime_ts))
 
     # sort by recent
+    results.sort(key=lambda x: x[1], reverse=True)
+
+    return [r[0] for r in results]
+
+
+def fast_search(filters: dict):
+    query = filters["name"] or ""
+
+    home = os.path.expanduser("~")
+
+    try:
+        result = subprocess.run(
+            ["locate", query],
+            capture_output=True,
+            text=True
+        )
+    except Exception:
+        return []
+
+    paths = result.stdout.split("\n")
+
+    results = []
+
+    for path in paths:
+        if not path or not os.path.exists(path):
+            continue
+
+        # ✅ allow only specific root dirs
+        if not any(path.startswith(os.path.join(home, d)) for d in ALLOWED_ROOT_DIRS):
+            continue
+
+        # ✅ exclude unwanted dirs anywhere in path
+        if any(f"/{d}/" in path for d in EXCLUDE_DIRS):
+            continue
+
+        try:
+            mtime_ts = os.path.getmtime(path)
+            mtime = datetime.fromtimestamp(mtime_ts)
+        except Exception:
+            continue
+
+        # extension filter
+        if filters["ext"] and not path.endswith(filters["ext"]):
+            continue
+
+        # time filter (range)
+        if filters["time"]:
+            start, end = filters["time"]
+            if not (start <= mtime < end):
+                continue
+
+        results.append((path, mtime_ts))
+
     results.sort(key=lambda x: x[1], reverse=True)
 
     return [r[0] for r in results]
