@@ -4,7 +4,7 @@ def parse_query(query: str) -> dict:
     query = query.lower()
 
     return {
-        "name": extract_name(query),
+        "name": "",
         "ext": extract_extension(query),
         "time": extract_time(query)
     }
