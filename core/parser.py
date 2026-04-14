@@ -17,6 +17,8 @@ def extract_extension(query: str):
         return ".pdf"
     if ".py" in query or "python" in query:
         return ".py"
+    if "png" in query:
+        return ".png"
     return None
 
 
@@ -37,5 +39,12 @@ def extract_time(query: str):
     return None
 
 def extract_name(query: str):
-    words = query.split()
+    stopwords = {
+        "today", "yesterday", "day", "before",
+        "file", "files", "find", "show",
+        "python", "py", ".py"   # 👈 ADD THIS
+    }
+
+    words = [w for w in query.split() if w not in stopwords]
+
     return words[-1] if words else ""
