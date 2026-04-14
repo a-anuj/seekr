@@ -26,15 +26,21 @@ def extract_time(query: str):
     now = datetime.now()
 
     if "today" in query:
-        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = now
+        return (start, end)
 
     if "yesterday" in query:
-        yesterday = now - timedelta(days=1)
-        return yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start = today_start - timedelta(days=1)
+        end = today_start
+        return (start, end)
 
     if "day before yesterday" in query:
-        day = now - timedelta(days=2)
-        return day.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start = today_start - timedelta(days=2)
+        end = today_start - timedelta(days=1)
+        return (start, end)
 
     return None
 
