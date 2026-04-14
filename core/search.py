@@ -1,7 +1,17 @@
 import os
 from datetime import datetime
 
+# folders to scan (ONLY these)
+ALLOWED_ROOT_DIRS = {
+    "Projects",
+    "Desktop",
+    "Downloads",
+    "Music",
+    "Videos",
+    "Documents",
+}
 
+# folders to ignore inside traversal
 EXCLUDE_DIRS = {
     ".cache",
     ".git",
@@ -11,34 +21,47 @@ EXCLUDE_DIRS = {
     "venv",
     "env",
     ".local",
+    ".config",
+    "miniconda3",
 }
 
+
 def search_files(filters: dict, root=None):
-    if root is None:
-        root = os.path.expanduser("~")
+    home = os.path.expanduser("~")
+
+    # build allowed root paths
+    root_dirs = [
+        os.path.join(home, d)
+        for d in ALLOWED_ROOT_DIRS
+        if os.path.exists(os.path.join(home, d))
+    ]
 
     results = []
 
-    for root_dir, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
-        for file in files:
-            path = os.path.join(root_dir, file)
+    for base_dir in root_dirs:
+        for root_dir, dirs, files in os.walk(base_dir):
+            # skip unwanted dirs
+            dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
 
-            # extension filter
-            if filters["ext"] and not file.endswith(filters["ext"]):
-                continue
+            for file in files:
+                path = os.path.join(root_dir, file)
 
-            # name filter
-            if filters["name"] and filters["name"] not in file.lower():
-                continue
-
-            # time filter
-            if filters["time"]:
-                mtime = datetime.fromtimestamp(os.path.getmtime(path))
-                if mtime < filters["time"]:
+                try:
+                    mtime_ts = os.path.getmtime(path)
+                    mtime = datetime.fromtimestamp(mtime_ts)
+                except Exception:
                     continue
 
-            results.append((path, os.path.getmtime(path)))
+                # extension filter
+                if filters["ext"] and not file.endswith(filters["ext"]):
+                    continue
+
+                # time filter
+                if filters["time"]:
+                    if mtime < filters["time"]:
+                        continue
+
+                results.append((path, mtime_ts))
 
     # sort by recent
     results.sort(key=lambda x: x[1], reverse=True)
