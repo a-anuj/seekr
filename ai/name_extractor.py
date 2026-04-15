@@ -35,7 +35,7 @@ def ai_extract_name(query: str):
     )
 
     result = response.choices[0].message.content.strip().lower()
-    print(result)
+    print("Name : ",result)
 
     # remove think
     if "<think>" in result:
