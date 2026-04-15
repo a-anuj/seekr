@@ -37,7 +37,10 @@ It ships with both a sleek **GTK4/Adwaita GUI** (GNOME-native) and a **CLI** for
 | **AI Query Parsing** | Understands natural language via Groq LLM; extracts filename keywords, folder hints, and structured filters |
 | **Fast Indexed Search** | SQLite FTS5 full-text search index — no slow `find` traversals on every query |
 | **Smart Sync Indexer** | Background indexer that adds new files, updates changed ones, and prunes deleted ones — without a full rebuild |
-| **Filter Support** | Filter by **file extension**, **time range** (today, yesterday, last week, custom), and **folder name** |
+| **Filter Support** | Filter by **file extension**, **time range** (today, yesterday, last week, custom), **folder name**, **file size**, and **content** |
+| **Content Search** | Search *inside* files using natural language triggers — e.g. _"files containing import pandas"_ |
+| **Size-Based Search** | Find the largest/smallest files or filter by size thresholds — e.g. _"largest files in downloads"_, _"files over 10MB"_ |
+
 | **Secure API Key Storage** | Groq API key stored using the system keyring (no plaintext secrets on disk) |
 | **GNOME-Native GTK4 UI** | Built with Adwaita for a native GNOME look and feel |
 | **One-Click Open** | Double-click a result to reveal the file in your file manager (via DBus `ShowItems`) |
@@ -118,9 +121,11 @@ User Query
 
 At startup, a **background thread** runs the smart indexer:
 
-- Scans `~/Projects`, `~/Desktop`, `~/Downloads`, `~/Documents`, `~/Music`, `~/Videos`
+- Scans `~/Projects`, `~/Desktop`, `~/Downloads`, `~/Documents`, `~/Music`, `~/Videos`, `~/Pictures`
 - Skips `.git`, `node_modules`, `__pycache__`, `.venv`, `.cache`, etc.
 - Uses **mtime comparison** to skip unchanged files (no redundant writes)
+- Indexes **text file content** (`.py`, `.md`, `.txt`, `.json`, etc.) for full-text content search
+- Stores **file size** for size-based filtering and sorting
 - Removes entries for files that were deleted from disk
 - Stores metadata in `~/.local/share/seekr/seekr.db` (SQLite FTS5)
 
@@ -167,6 +172,11 @@ seekr-1.0/
 | `"pdf in downloads"` | `.pdf` files inside the Downloads folder |
 | `"parser file in GigArmor"` | File named "parser" inside a "GigArmor" folder |
 | `"python files last week"` | `.py` files from last week (AI parses date range) |
+| `"pictures"` | All files inside `~/Pictures`, sorted by most recent |
+| `"largest files in pictures"` | Files from `~/Pictures` sorted by size (largest first) |
+| `"files containing import pandas"` | Text files whose content includes "import pandas" |
+| `"files over 10MB"` | Any indexed file larger than 10 MB |
+| `"smallest python files"` | `.py` files sorted by size (smallest first) |
 
 ---
 
@@ -219,10 +229,10 @@ The script will:
 
 Contributions are welcome! Feel free to open issues or pull requests for:
 
-- New query filter types (size, content search, etc.)
-- Additional AI model backends
+- Additional AI model backends (Ollama local, OpenAI, Gemini)
 - Packaging for other distros (Arch AUR, Debian PPA)
 - Performance improvements to the indexer
+- Support for more file types in content indexing
 
 
 
