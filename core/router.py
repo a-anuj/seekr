@@ -1,5 +1,6 @@
 from core.parser import parse_query
 from ai.name_extractor import ai_extract_name
+from ai.folder_extractor import ai_extract_folder
 from ai.parser_ai import ai_parse
 from ai.utils import convert_ai_to_filters
 
@@ -33,16 +34,18 @@ def get_filters(query: str):
     # 🔹 Step 2: ALWAYS improve name using AI
     try:
         ai_name = ai_extract_name(query)
+        ai_folder = ai_extract_folder(query)
         print("Getting through this block ")
-        print("AI NAme : ",ai_name)
         if ai_name:
             filters["name"] = ai_name or ""
-            print("AI NAME:", ai_name)
+        if ai_folder:
+            filters["folder"] = ai_folder or ""
     except Exception as e:
         print(e)  # fail silently
 
     # 🔹 Step 3: check confidence
     if is_strong(filters):
+        print("Returning Local Filters")
         return filters
 
     # 🔹 Step 4: fallback to full AI
@@ -51,14 +54,15 @@ def get_filters(query: str):
 
         if ai_data:
             ai_filters = convert_ai_to_filters(ai_data)
-            print("AI - Filters : ",ai_filters)
 
             if is_strong(ai_filters):
                 print("AI - Filters : ",ai_filters)
+                print("Returning AI Filters")
                 return ai_filters
     except:
         pass
 
     # 🔹 fallback
     print("Local - Filters : ",filters)
+    print("Returning Local Filters")
     return filters
