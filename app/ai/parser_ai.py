@@ -5,12 +5,11 @@ import json
 
 load_dotenv()
 
-api_key = os.getenv("GROQ_API_KEY")
-
-if not api_key:
-    raise ValueError("GROQ_API_KEY not found in environment variables")
-
-client = Groq(api_key=api_key)
+def get_client():
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("API key not set")
+    return Groq(api_key=api_key)
 
 def ai_parse(query: str):
     prompt = f"""
@@ -47,7 +46,7 @@ def ai_parse(query: str):
             }}
 
             """
-
+    client = get_client()
     response = client.chat.completions.create(
         model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": prompt}]

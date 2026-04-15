@@ -4,8 +4,14 @@ import os
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+from groq import Groq
+import os
 
+def get_client():
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("API key not set")
+    return Groq(api_key=api_key)
 
 def ai_extract_folder(query: str):
     prompt = f"""
@@ -28,7 +34,7 @@ def ai_extract_folder(query: str):
 
     Output ONLY the keyword.
     """
-
+    client = get_client()
     response = client.chat.completions.create(
         model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": prompt}]
