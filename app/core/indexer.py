@@ -3,7 +3,7 @@ import sqlite3
 from app.storage.db import DB_PATH
 
 # Folders to scan
-ALLOWED_ROOT_DIRS = {"Projects", "Desktop", "Downloads", "Music", "Videos", "Documents"}
+ALLOWED_ROOT_DIRS = {"Projects", "Desktop", "Downloads", "Music", "Videos", "Documents", "Pictures"}
 # Folders to ignore inside traversal
 EXCLUDE_DIRS = {".cache", ".git", "node_modules", "__pycache__", ".venv", "venv", "env", ".local", ".config"}
 

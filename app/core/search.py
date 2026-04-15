@@ -11,6 +11,7 @@ ALLOWED_ROOT_DIRS = {
     "Music",
     "Videos",
     "Documents",
+    "Pictures",
 }
 
 # folders to ignore inside traversal
