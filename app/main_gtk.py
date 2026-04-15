@@ -1,10 +1,13 @@
 import gi
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-
-from gi.repository import Gtk, Adw
 import os
 import subprocess
+import threading
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+gi.require_version("GLib", "2.0")
+
+from gi.repository import Gtk, Adw, GLib
 
 from core.router import get_filters
 from core.search import search_files, fast_search
@@ -76,7 +79,7 @@ class SeekrWindow(Adw.ApplicationWindow):
         # Set the toolbar view as the sole content of the window
         self.set_content(toolbar_view)
 
-    # 🔍 Search handler
+    # 🔍 1. Triggered when the user hits Enter (Runs on Main GUI Thread)
     def on_search(self, entry):
         query = entry.get_text().strip()
 
@@ -86,7 +89,16 @@ class SeekrWindow(Adw.ApplicationWindow):
             return
 
         self.add_message("Searching...")
+        
+        # Lock the entry so the user can't spam searches
+        self.entry.set_sensitive(False)
 
+        # Fire off the background thread
+        thread = threading.Thread(target=self._run_search_thread, args=(query,), daemon=True)
+        thread.start()
+
+    # ⚙️ 2. The Heavy Lifting (Runs in Background Thread)
+    def _run_search_thread(self, query):
         filters = get_filters(query)
 
         if filters.get("name"):
@@ -94,14 +106,25 @@ class SeekrWindow(Adw.ApplicationWindow):
         else:
             results = search_files(filters)
 
+        # Safely pass the results back to the Main GUI Thread
+        GLib.idle_add(self._update_ui_with_results, results)
+
+    # 🎨 3. Updating the Screen (Runs back on the Main GUI Thread)
+    def _update_ui_with_results(self, results):
         self.clear_results()
+        
+        # Unlock the entry box
+        self.entry.set_sensitive(True)
+        self.entry.grab_focus()
 
         if not results:
             self.add_message("No results found")
-            return
+            return False # Required to stop GLib from looping this function
 
         for path in results[:50]:
             self.add_result_row(path)
+            
+        return False # Required to stop GLib from looping this function
 
     # 📄 Add result row
     def add_result_row(self, path):
@@ -117,7 +140,7 @@ class SeekrWindow(Adw.ApplicationWindow):
 
         row.set_child(label)
 
-        # ✅ GTK4 safe way
+        # ✅ GTK4 safe way to attach custom data to a row
         row.path = path
 
         self.listbox.append(row)
@@ -127,7 +150,12 @@ class SeekrWindow(Adw.ApplicationWindow):
         path = getattr(row, "path", None)
 
         if path:
-            subprocess.run(["xdg-open", os.path.dirname(path)])
+            directory = os.path.dirname(path)
+            # Added a try/except block to handle missing folders gracefully
+            try:
+                subprocess.run(["xdg-open", directory], check=True)
+            except Exception as e:
+                print(f"Failed to open {directory}: {e}")
 
     # 🧹 Clear results
     def clear_results(self):
