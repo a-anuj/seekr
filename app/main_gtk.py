@@ -3,6 +3,7 @@ import os
 import subprocess
 import threading
 import urllib.parse
+import keyring  # 🚀 NEW: Secure credential storage
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -11,7 +12,9 @@ gi.require_version("GLib", "2.0")
 from gi.repository import Gtk, Adw, GLib
 
 from core.router import get_filters
-from core.search import search_files, fast_search
+# 🚀 NEW: Replaced search_files with our DB and Indexer modules
+from storage.db import init_db, search_db
+from core.indexer import build_index
 
 
 APP_NAME = "Seekr"
@@ -66,6 +69,31 @@ class SeekrWindow(Adw.ApplicationWindow):
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         self.stack.set_vexpand(True)
 
+        # 🔐 State 0: The Setup/Onboarding Screen (NEW)
+        self.status_setup = Adw.StatusPage(
+            icon_name="dialog-password-symbolic",
+            title="Welcome to Seekr",
+            description="To power the smart search, please enter your Groq API Key."
+        )
+        
+        setup_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        setup_box.set_halign(Gtk.Align.CENTER)
+        setup_box.set_size_request(350, -1)
+
+        self.key_entry = Adw.PasswordEntryRow()
+        self.key_entry.set_title("Groq API Key")
+        
+        preferences_group = Adw.PreferencesGroup()
+        preferences_group.add(self.key_entry)
+
+        save_button = Gtk.Button(label="Save & Continue")
+        save_button.add_css_class("suggested-action") 
+        save_button.connect("clicked", self.on_save_key)
+
+        setup_box.append(preferences_group)
+        setup_box.append(save_button)
+        self.status_setup.set_child(setup_box)
+
         #   State 1: Initial/Idle Status Page
         self.status_idle = Adw.StatusPage(
             icon_name="system-search-symbolic",
@@ -95,13 +123,11 @@ class SeekrWindow(Adw.ApplicationWindow):
         scrolled.set_child(self.listbox)
 
         # Add all states to the stack
+        self.stack.add_named(self.status_setup, "setup")
         self.stack.add_named(self.status_idle, "idle")
         self.stack.add_named(self.status_searching, "searching")
         self.stack.add_named(self.status_empty, "empty")
         self.stack.add_named(scrolled, "results")
-
-        # Set default view
-        self.stack.set_visible_child_name("idle")
 
         box.append(self.entry)
         box.append(self.stack)
@@ -111,6 +137,46 @@ class SeekrWindow(Adw.ApplicationWindow):
         toolbar_view.set_content(self.toast_overlay)
 
         self.set_content(toolbar_view)
+
+        # 🔥 Check API Key on Startup
+        self.check_api_key()
+
+    # 🔐 KEYRING: Check if API key is saved
+    def check_api_key(self):
+        saved_key = keyring.get_password("seekr_app", "groq_api_key")
+        
+        if saved_key:
+            os.environ["GROQ_API_KEY"] = saved_key 
+            self.stack.set_visible_child_name("idle")
+            self.entry.set_sensitive(True)
+            
+            # Start the invisible background indexer
+            init_db()
+            threading.Thread(target=build_index, daemon=True).start()
+        else:
+            # Lock app to setup screen
+            self.stack.set_visible_child_name("setup")
+            self.entry.set_sensitive(False)
+
+    # 🔐 KEYRING: Save new API key
+    def on_save_key(self, button):
+        new_key = self.key_entry.get_text().strip()
+        
+        if not new_key.startswith("gsk_"): 
+            self.show_toast("Invalid API Key format.")
+            return
+            
+        keyring.set_password("seekr_app", "groq_api_key", new_key)
+        self.show_toast("API Key saved securely!")
+        
+        os.environ["GROQ_API_KEY"] = new_key
+        self.stack.set_visible_child_name("idle")
+        self.entry.set_sensitive(True)
+        self.entry.grab_focus()
+
+        # Start DB and indexer now that we have access
+        init_db()
+        threading.Thread(target=build_index, daemon=True).start()
 
     # 🔍 1. Triggered when the user hits Enter
     def on_search(self, entry):
@@ -133,11 +199,9 @@ class SeekrWindow(Adw.ApplicationWindow):
     # ⚙️ 2. The Heavy Lifting (Background)
     def _run_search_thread(self, query):
         filters = get_filters(query)
-
-        if filters.get("name"):
-            results = fast_search(filters)
-        else:
-            results = search_files(filters)
+        
+        # 🚀 NEW: Query the SQLite DB instead of the hard drive
+        results = search_db(filters)
 
         GLib.idle_add(self._update_ui_with_results, results)
 
@@ -158,7 +222,7 @@ class SeekrWindow(Adw.ApplicationWindow):
             
         return False 
 
-# 📄 Add result row
+    # 📄 Add result row
     def add_result_row(self, path):
         filename = os.path.basename(path)
         directory = os.path.dirname(path)
@@ -191,7 +255,6 @@ class SeekrWindow(Adw.ApplicationWindow):
 
         # 1. Try the standard Linux DBus method to reveal and highlight the file
         try:
-            # DBus requires a properly formatted file:// URI
             file_uri = f"file://{urllib.parse.quote(path)}"
             subprocess.run([
                 "dbus-send", "--session", "--dest=org.freedesktop.FileManager1",
