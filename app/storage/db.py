@@ -75,10 +75,18 @@ def search_db(filters: dict):
     where = " WHERE 1=1"
     params = []
 
-    # 1. Name / keyword search (FTS5 full-text across all indexed columns)
-    if filters.get("name") and filters["name"].strip():
+    # 1. Name / keyword search — scoped to filename + path columns only.
+    # Skip if `name` is identical to `folder`: the folder LIKE filter already
+    # handles the directory constraint; adding a redundant FTS5 MATCH would
+    # exclude files whose *filenames* don't contain the folder name (e.g.
+    # vacation.jpg inside ~/Pictures would be dropped).
+    name_val = (filters.get("name") or "").strip()
+    folder_val = (filters.get("folder") or "").strip()
+    if name_val and name_val.lower() != folder_val.lower():
+        # Scope to filename and path columns (indices 0 and 1) so we don't
+        # accidentally match on unrelated content / extension tokens.
         where += " AND rowid IN (SELECT rowid FROM files WHERE files MATCH ?)"
-        params.append(f"{filters['name']}*")
+        params.append(f"{{filename path}} : {name_val}*")
 
     # 2. Content search (FTS5 scoped to the content column)
     if is_content_search:
