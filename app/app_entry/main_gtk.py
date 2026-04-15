@@ -18,7 +18,7 @@ from app.core.indexer import build_index
 
 
 APP_NAME = "Seekr"
-APP_VERSION = "v1.0"
+APP_VERSION = "v1.1"
 
 
 def format_size(size_bytes: int | None) -> str:
