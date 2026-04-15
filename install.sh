@@ -4,7 +4,7 @@ set -e
 
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 ICON_PATH="$INSTALL_DIR/assets/logo.png"
-SCRIPT_PATH="$INSTALL_DIR/app/main_gtk.py"
+SCRIPT_PATH="$INSTALL_DIR/app_entry/main_gtk.py"
 
 echo "🚀 Installing Seekr..."
 
@@ -63,8 +63,7 @@ cat <<EOF > ~/.local/share/applications/com.seekr.app.desktop
 [Desktop Entry]
 Name=Seekr
 Comment=AI-Powered File Search
-Exec=bash -c "cd $INSTALL_DIR && PYTHONPATH=$INSTALL_DIR python3 $SCRIPT_PATH 2>>/tmp/seekr-error.log"
-Path=$INSTALL_DIR
+Exec=bash -c "cd /opt/seekr && PYTHONPATH=/opt/seekr python3 app/ai/app_entry/main_gtk.py"Path=$INSTALL_DIR
 $ICON_LINE
 Type=Application
 Categories=Utility;System;

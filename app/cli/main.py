@@ -1,6 +1,6 @@
 import sys
-from core.parser import parse_query
-from core.search import fast_search, search_files
+from app.core.parser import parse_query
+from app.core.search import fast_search, search_files
 
 
 def main():

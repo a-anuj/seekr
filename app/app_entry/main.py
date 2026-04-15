@@ -8,8 +8,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
-from core.router import get_filters
-from core.search import search_files, fast_search
+from app.core.router import get_filters
+from app.core.search import search_files, fast_search
 
 
 class SearchWorker(QThread):

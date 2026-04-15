@@ -11,10 +11,10 @@ gi.require_version("GLib", "2.0")
 
 from gi.repository import Gtk, Adw, GLib
 
-from core.router import get_filters
+from app.core.router import get_filters
 # 🚀 NEW: Replaced search_files with our DB and Indexer modules
-from storage.db import init_db, search_db
-from core.indexer import build_index
+from app.storage.db import init_db, search_db
+from app.core.indexer import build_index
 
 
 APP_NAME = "Seekr"
@@ -25,6 +25,7 @@ class SeekrWindow(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app)
         self.set_icon_name("com.seekr.app")
+        
 
         self.set_title(APP_NAME)
         self.set_default_size(720, 520)
@@ -294,6 +295,9 @@ class SeekrApp(Adw.Application):
         win = SeekrWindow(self)
         win.present()
 
+def main():
+    app = SeekrApp()
+    app.run([])
 
 if __name__ == "__main__":
     app = SeekrApp()

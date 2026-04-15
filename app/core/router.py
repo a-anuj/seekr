@@ -1,8 +1,8 @@
-from core.parser import parse_query
-from ai.name_extractor import ai_extract_name
-from ai.folder_extractor import ai_extract_folder
-from ai.parser_ai import ai_parse
-from ai.utils import convert_ai_to_filters
+from app.core.parser import parse_query
+from app.ai.name_extractor import ai_extract_name
+from app.ai.folder_extractor import ai_extract_folder
+from app.ai.parser_ai import ai_parse
+from app.ai.utils import convert_ai_to_filters
 
 print("ROUTER OPENED")
 

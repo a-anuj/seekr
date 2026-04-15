@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from storage.db import DB_PATH
+from app.storage.db import DB_PATH
 
 # Folders to scan
 ALLOWED_ROOT_DIRS = {"Projects", "Desktop", "Downloads", "Music", "Videos", "Documents"}
