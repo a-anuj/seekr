@@ -24,6 +24,7 @@ APP_VERSION = "v1.0"
 class SeekrWindow(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app)
+        self.set_icon_name("com.seekr.app")
 
         self.set_title(APP_NAME)
         self.set_default_size(720, 520)
