@@ -46,6 +46,7 @@ def get_filters(query: str):
     # 🔹 Step 3: check confidence
     if is_strong(filters):
         print("Returning Local Filters")
+        print("Local - Filters : ",filters)
         return filters
 
     # 🔹 Step 4: fallback to full AI
