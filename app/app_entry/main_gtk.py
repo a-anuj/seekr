@@ -3,22 +3,49 @@ import os
 import subprocess
 import threading
 import urllib.parse
-import keyring  # 🚀 NEW: Secure credential storage
+import keyring
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("GLib", "2.0")
+gi.require_version("Pango", "1.0")
 
-from gi.repository import Gtk, Adw, GLib
+from gi.repository import Gtk, Adw, GLib, Pango
 
 from app.core.router import get_filters
-# 🚀 NEW: Replaced search_files with our DB and Indexer modules
 from app.storage.db import init_db, search_db
 from app.core.indexer import build_index
 
 
 APP_NAME = "Seekr"
 APP_VERSION = "v1.0"
+
+
+def format_size(size_bytes: int | None) -> str:
+    """Return a human-readable file size string."""
+    if size_bytes is None:
+        return ""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    if size_bytes < 1024 ** 2:
+        return f"{size_bytes / 1024:.1f} KB"
+    if size_bytes < 1024 ** 3:
+        return f"{size_bytes / 1024 ** 2:.1f} MB"
+    return f"{size_bytes / 1024 ** 3:.2f} GB"
+
+
+def format_snippet_markup(raw: str) -> str:
+    """
+    Convert FTS5 snippet with ** markers into Pango markup with bold highlights.
+    E.g. "foo **bar** baz" → "foo <b>bar</b> baz"
+    """
+    # Escape the whole string for Pango, then re-insert bold tags
+    escaped = GLib.markup_escape_text(raw)
+    parts = escaped.split("**")
+    result = ""
+    for i, part in enumerate(parts):
+        result += f"<b>{part}</b>" if i % 2 == 1 else part
+    return result
 
 
 class SeekrWindow(Adw.ApplicationWindow):
@@ -201,8 +228,8 @@ class SeekrWindow(Adw.ApplicationWindow):
     # ⚙️ 2. The Heavy Lifting (Background)
     def _run_search_thread(self, query):
         filters = get_filters(query)
-        
-        # 🚀 NEW: Query the SQLite DB instead of the hard drive
+
+        # search_db now returns [(path, snippet_or_None, size_bytes), ...]
         results = search_db(filters)
 
         GLib.idle_add(self._update_ui_with_results, results)
@@ -216,32 +243,78 @@ class SeekrWindow(Adw.ApplicationWindow):
             self.stack.set_visible_child_name("empty")
             return False
 
-        # Switch view to the results list
         self.stack.set_visible_child_name("results")
 
-        for path in results[:50]:
-            self.add_result_row(path)
-            
-        return False 
+        for path, snippet, size in results[:50]:
+            self.add_result_row(path, snippet=snippet, size_bytes=size)
 
-    # 📄 Add result row
-    def add_result_row(self, path):
-        filename = os.path.basename(path)
+        return False
+
+    # 📄 Add a rich result row: filename + size + directory + optional bold snippet
+    def add_result_row(self, path: str, snippet: str | None = None, size_bytes: int | None = None):
+        filename  = os.path.basename(path)
         directory = os.path.dirname(path)
 
-        row = Adw.ActionRow()
-        row.set_title(filename)
-        row.set_subtitle(directory)
-        
-        # 🔥 REQUIRED: Make the ActionRow clickable
-        row.set_activatable(True)
+        # ── Outer row (makes the whole thing clickable) ───────────────────────
+        outer_row = Gtk.ListBoxRow()
+        outer_row.path = path
 
-        icon = Gtk.Image.new_from_icon_name("text-x-generic-symbolic")
-        row.add_prefix(icon)
+        # ── Horizontal container: icon | text block ───────────────────────────
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        hbox.set_margin_top(10)
+        hbox.set_margin_bottom(10)
+        hbox.set_margin_start(14)
+        hbox.set_margin_end(14)
 
-        row.path = path
+        icon_name = "edit-find-symbolic" if snippet else "text-x-generic-symbolic"
+        icon = Gtk.Image.new_from_icon_name(icon_name)
+        icon.set_valign(Gtk.Align.START)
+        icon.set_margin_top(2)
+        hbox.append(icon)
 
-        self.listbox.append(row)
+        # ── Vertical text block ───────────────────────────────────────────────
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        vbox.set_hexpand(True)
+
+        # Row 1: filename (bold) + size (right-aligned, dim)
+        title_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+
+        name_label = Gtk.Label(label=filename)
+        name_label.set_xalign(0.0)
+        name_label.set_hexpand(True)
+        name_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+        name_label.add_css_class("heading")
+        title_row.append(name_label)
+
+        if size_bytes is not None:
+            size_label = Gtk.Label(label=format_size(size_bytes))
+            size_label.set_xalign(1.0)
+            size_label.add_css_class("dim-label")
+            size_label.add_css_class("caption")
+            title_row.append(size_label)
+
+        vbox.append(title_row)
+
+        # Row 2: directory path (dim, ellipsized from start)
+        dir_label = Gtk.Label(label=directory)
+        dir_label.set_xalign(0.0)
+        dir_label.set_ellipsize(Pango.EllipsizeMode.START)
+        dir_label.add_css_class("dim-label")
+        dir_label.add_css_class("caption")
+        vbox.append(dir_label)
+
+        # Row 3 (optional): content snippet with bold highlights
+        if snippet:
+            snip_label = Gtk.Label()
+            snip_label.set_markup(format_snippet_markup(snippet))
+            snip_label.set_xalign(0.0)
+            snip_label.set_ellipsize(Pango.EllipsizeMode.END)
+            snip_label.add_css_class("caption")
+            vbox.append(snip_label)
+
+        hbox.append(vbox)
+        outer_row.set_child(hbox)
+        self.listbox.append(outer_row)
 
     # 📂 Open file manager and highlight the file
     def on_open(self, listbox, row):
