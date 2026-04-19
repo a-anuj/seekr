@@ -1,0 +1,48 @@
+name: Build and Push to Fedora COPR
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install RPM and COPR Build Tools
+        run: dnf install -y rpm-build rpmdevtools copr-cli
+
+      - name: Extract Version from Spec
+        id: spec-info
+        run: |
+          VERSION=$(grep '^Version:' seekr.spec | awk '{print $2}')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version detected: $VERSION"
+
+      - name: Package Tarball
+        run: |
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          # We pack the current dir (.) into the specific tar name requested by seekr.spec
+          tar --exclude="./.git" --exclude="./.github" -czvf ~/rpmbuild/SOURCES/seekr-${VERSION}.tar.gz .
+      
+      - name: Copy Spec File
+        run: cp seekr.spec ~/rpmbuild/SPECS/
+
+      - name: Build SRPM (Source RPM)
+        run: rpmbuild -bs ~/rpmbuild/SPECS/seekr.spec
+
+      - name: Authenticate with COPR
+        run: |
+          mkdir -p ~/.config
+          # The COPR config content comes securely from GitHub Secrets
+          echo "${{ secrets.COPR_CONFIG }}" > ~/.config/copr
+
+      - name: Trigger COPR Build
+        run: |
+          copr-cli build a-anuj/seekr ~/rpmbuild/SRPMS/*.src.rpm
+          echo "✅ Build successfully submitted to COPR!"
