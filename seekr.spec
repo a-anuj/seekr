@@ -16,6 +16,7 @@ Requires:       python3
 Requires:       python3-gobject
 Requires:       gtk4
 Requires:       python3-keyring
+Requires:       python3-watchdog
 
 %description
 Seekr is an AI-powered file search GTK application.
