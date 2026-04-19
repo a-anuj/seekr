@@ -116,6 +116,11 @@ User Query
   Results (sorted by most recent)
 ```
 
+### Architecture
+Seekr uses a high-performance, event-driven architecture to ensure your index is always live without draining system resources.
+
+![System Architecture](assets/achitecture_diagram.png)
+
 ### Indexer
 
 At startup, a **background thread** runs the smart indexer:
@@ -202,7 +207,12 @@ GROQ_API_KEY=gsk_your_key_here
 
 > ⚠️ **Never commit your `.env` file.** It is already in `.gitignore`.
 
+---
 
+## CI/CD & Deployment
+Seekr is continuously built and deployed to Fedora COPR using GitHub Actions.
+
+![CI/CD Workflow](assets/workflow.png)
 
 ## Manual Installation (Non-COPR)
 
