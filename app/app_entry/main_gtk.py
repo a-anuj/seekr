@@ -14,7 +14,7 @@ from gi.repository import Gtk, Adw, GLib, Pango
 
 from app.core.router import get_filters
 from app.storage.db import init_db, search_db
-from app.core.indexer import build_index
+from app.core.indexer import build_index, start_watchdog
 
 
 APP_NAME = "Seekr"
@@ -34,18 +34,7 @@ def format_size(size_bytes: int | None) -> str:
     return f"{size_bytes / 1024 ** 3:.2f} GB"
 
 
-def format_snippet_markup(raw: str) -> str:
-    """
-    Convert FTS5 snippet with ** markers into Pango markup with bold highlights.
-    E.g. "foo **bar** baz" → "foo <b>bar</b> baz"
-    """
-    # Escape the whole string for Pango, then re-insert bold tags
-    escaped = GLib.markup_escape_text(raw)
-    parts = escaped.split("**")
-    result = ""
-    for i, part in enumerate(parts):
-        result += f"<b>{part}</b>" if i % 2 == 1 else part
-    return result
+# Removed format_snippet_markup
 
 
 class SeekrWindow(Adw.ApplicationWindow):
@@ -179,9 +168,10 @@ class SeekrWindow(Adw.ApplicationWindow):
             self.stack.set_visible_child_name("idle")
             self.entry.set_sensitive(True)
             
-            # Start the invisible background indexer
+            # Start the invisible background indexer and watchdog
             init_db()
             threading.Thread(target=build_index, daemon=True).start()
+            threading.Thread(target=start_watchdog, daemon=True).start()
         else:
             # Lock app to setup screen
             self.stack.set_visible_child_name("setup")
@@ -203,9 +193,10 @@ class SeekrWindow(Adw.ApplicationWindow):
         self.entry.set_sensitive(True)
         self.entry.grab_focus()
 
-        # Start DB and indexer now that we have access
+        # Start DB, indexer, and watchdog now that we have access
         init_db()
         threading.Thread(target=build_index, daemon=True).start()
+        threading.Thread(target=start_watchdog, daemon=True).start()
 
     # 🔍 1. Triggered when the user hits Enter
     def on_search(self, entry):
@@ -245,13 +236,13 @@ class SeekrWindow(Adw.ApplicationWindow):
 
         self.stack.set_visible_child_name("results")
 
-        for path, snippet, size in results[:50]:
-            self.add_result_row(path, snippet=snippet, size_bytes=size)
+        for path, _, size in results[:50]:
+            self.add_result_row(path, size_bytes=size)
 
         return False
 
-    # 📄 Add a rich result row: filename + size + directory + optional bold snippet
-    def add_result_row(self, path: str, snippet: str | None = None, size_bytes: int | None = None):
+    # 📄 Add a rich result row: filename + size + directory
+    def add_result_row(self, path: str, size_bytes: int | None = None):
         filename  = os.path.basename(path)
         directory = os.path.dirname(path)
 
@@ -266,7 +257,7 @@ class SeekrWindow(Adw.ApplicationWindow):
         hbox.set_margin_start(14)
         hbox.set_margin_end(14)
 
-        icon_name = "edit-find-symbolic" if snippet else "text-x-generic-symbolic"
+        icon_name = "text-x-generic-symbolic"
         icon = Gtk.Image.new_from_icon_name(icon_name)
         icon.set_valign(Gtk.Align.START)
         icon.set_margin_top(2)
@@ -302,15 +293,6 @@ class SeekrWindow(Adw.ApplicationWindow):
         dir_label.add_css_class("dim-label")
         dir_label.add_css_class("caption")
         vbox.append(dir_label)
-
-        # Row 3 (optional): content snippet with bold highlights
-        if snippet:
-            snip_label = Gtk.Label()
-            snip_label.set_markup(format_snippet_markup(snippet))
-            snip_label.set_xalign(0.0)
-            snip_label.set_ellipsize(Pango.EllipsizeMode.END)
-            snip_label.add_css_class("caption")
-            vbox.append(snip_label)
 
         hbox.append(vbox)
         outer_row.set_child(hbox)
