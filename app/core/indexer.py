@@ -29,8 +29,11 @@ def _upsert_file(cursor, path):
         ext = os.path.splitext(filename)[1].lower()
         folder = os.path.dirname(path)
 
+        # FTS5 does not support UNIQUE constraints or REPLACE by column.
+        # We must explicitly delete the old record first.
+        cursor.execute("DELETE FROM files WHERE path = ?", (path,))
         cursor.execute('''
-            INSERT OR REPLACE INTO files (filename, path, ext, folder, mtime, size)
+            INSERT INTO files (filename, path, ext, folder, mtime, size)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (filename, path, ext, folder, mtime, size))
     except Exception:
@@ -80,8 +83,12 @@ def build_index():
 
     # Bulk insert new/modified files
     if inserts:
+        # Explicit delete required for FTS5 before inserting updates
+        upsert_paths = [(i[1],) for i in inserts]
+        cursor.executemany("DELETE FROM files WHERE path = ?", upsert_paths)
+        
         cursor.executemany('''
-            INSERT OR REPLACE INTO files (filename, path, ext, folder, mtime, size)
+            INSERT INTO files (filename, path, ext, folder, mtime, size)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', inserts)
         
