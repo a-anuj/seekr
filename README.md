@@ -37,8 +37,7 @@ It ships with both a sleek **GTK4/Adwaita GUI** (GNOME-native) and a **CLI** for
 | **AI Query Parsing** | Understands natural language via Groq LLM; extracts filename keywords, folder hints, and structured filters |
 | **Fast Indexed Search** | SQLite FTS5 full-text search index — no slow `find` traversals on every query |
 | **Smart Sync Indexer** | Background indexer that adds new files, updates changed ones, and prunes deleted ones — without a full rebuild |
-| **Filter Support** | Filter by **file extension**, **time range** (today, yesterday, last week, custom), **folder name**, **file size**, and **content** |
-| **Content Search** | Search *inside* files using natural language triggers — e.g. _"files containing import pandas"_ |
+| **Filter Support** | Filter by **file extension**, **time range** (today, yesterday, last week, custom), **folder name**, and **file size** |
 | **Size-Based Search** | Find the largest/smallest files or filter by size thresholds — e.g. _"largest files in downloads"_, _"files over 10MB"_ |
 
 | **Secure API Key Storage** | Groq API key stored using the system keyring (no plaintext secrets on disk) |
@@ -123,8 +122,7 @@ At startup, a **background thread** runs the smart indexer:
 
 - Scans `~/Projects`, `~/Desktop`, `~/Downloads`, `~/Documents`, `~/Music`, `~/Videos`, `~/Pictures`
 - Skips `.git`, `node_modules`, `__pycache__`, `.venv`, `.cache`, etc.
-- Uses **mtime comparison** to skip unchanged files (no redundant writes)
-- Indexes **text file content** (`.py`, `.md`, `.txt`, `.json`, etc.) for full-text content search
+- Uses **mtime comparison** and **inotify** to instantly keep files in sync
 - Stores **file size** for size-based filtering and sorting
 - Removes entries for files that were deleted from disk
 - Stores metadata in `~/.local/share/seekr/seekr.db` (SQLite FTS5)
@@ -174,7 +172,6 @@ seekr-1.0/
 | `"python files last week"` | `.py` files from last week (AI parses date range) |
 | `"pictures"` | All files inside `~/Pictures`, sorted by most recent |
 | `"largest files in pictures"` | Files from `~/Pictures` sorted by size (largest first) |
-| `"files containing import pandas"` | Text files whose content includes "import pandas" |
 | `"files over 10MB"` | Any indexed file larger than 10 MB |
 | `"smallest python files"` | `.py` files sorted by size (smallest first) |
 
@@ -231,8 +228,6 @@ Contributions are welcome! Feel free to open issues or pull requests for:
 
 - Additional AI model backends (Ollama local, OpenAI, Gemini)
 - Packaging for other distros (Arch AUR, Debian PPA)
-- Performance improvements to the indexer
-- Support for more file types in content indexing
 
 
 
