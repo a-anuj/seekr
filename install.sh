@@ -39,7 +39,7 @@ fi
 echo "📦 Installing Python dependencies..."
 
 python3 -m pip install --user --upgrade pip
-python3 -m pip install --user keyring rapidocr-onnxruntime gi-docgen
+python3 -m pip install --user keyring gi-docgen watchdog
 
 # -------------------------------
 # 3. Validate files
