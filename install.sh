@@ -21,6 +21,12 @@ if ! python3 -c "import gi" 2>/dev/null; then
   elif command -v apt &> /dev/null; then
     sudo apt update
     sudo apt install -y python3-gi gir1.2-gtk-4.0
+  elif command -v pacman &> /dev/null; then
+    sudo pacman -Sy --noconfirm python-gobject gtk4
+  elif command -v zypper &> /dev/null; then
+    sudo zypper install -y python3-gobject gtk4
+  elif command -v apk &> /dev/null; then
+    sudo apk add py3-gobject3 gtk4.0
   else
     echo "⚠️ Unsupported package manager. Install GTK manually."
     exit 1
@@ -45,30 +51,18 @@ if [ ! -f "$SCRIPT_PATH" ]; then
   exit 1
 fi
 
-if [ ! -f "$ICON_PATH" ]; then
-  echo "⚠️ Icon not found, continuing without icon..."
-  ICON_LINE="# Icon not set"
-else
-  ICON_LINE="Icon=$ICON_PATH"
-fi
-
 # -------------------------------
-# 4. Create desktop entry
+# 4. Create CLI shortcut
 # -------------------------------
-echo "📝 Creating desktop entry..."
+echo "📝 Creating CLI shortcut..."
 
-mkdir -p ~/.local/share/applications
+mkdir -p ~/.local/bin
 
-cat <<EOF > ~/.local/share/applications/com.seekr.app.desktop
-[Desktop Entry]
-Name=Seekr
-Comment=AI-Powered File Search
-Exec=bash -c "cd /opt/seekr && PYTHONPATH=/opt/seekr python3 app/ai/app_entry/main_gtk.py"Path=$INSTALL_DIR
-$ICON_LINE
-Type=Application
-Categories=Utility;System;
-Terminal=false
-StartupNotify=true
+cat <<EOF > ~/.local/bin/seekr
+#!/bin/bash
+export PYTHONPATH="$INSTALL_DIR"
+cd "$INSTALL_DIR" || exit 1
+python3 "$SCRIPT_PATH" "\\\$@"
 EOF
 
 # -------------------------------
@@ -76,17 +70,11 @@ EOF
 # -------------------------------
 echo "🔐 Setting permissions..."
 
-chmod +x ~/.local/share/applications/com.seekr.app.desktop
+chmod +x ~/.local/bin/seekr
 chmod +x "$SCRIPT_PATH"
-
-# -------------------------------
-# 6. Refresh system
-# -------------------------------
-echo "🔄 Updating application database..."
-
-update-desktop-database ~/.local/share/applications 2>/dev/null || true
 
 echo ""
 echo "✅ Installation complete!"
-echo "👉 Search 'Seekr' in app menu"
+echo "👉 You can now run Seekr by typing 'seekr' in your terminal."
+echo "⚠️  Note: Make sure ~/.local/bin is in your PATH."
 echo "🐞 Logs: /tmp/seekr-error.log"
