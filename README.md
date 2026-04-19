@@ -137,7 +137,7 @@ At startup, a **background thread** runs the smart indexer:
 ## Project Structure
 
 ```
-seekr-1.0/
+seekr/
 ├── app/
 │   ├── ai/
 │   │   ├── name_extractor.py     # AI: extracts filename keyword from query
@@ -220,7 +220,7 @@ If you prefer to install from source:
 
 ```bash
 git clone https://github.com/a-anuj/seekr.git
-cd seekr-1.0
+cd seekr
 chmod +x install.sh
 ./install.sh
 ```
@@ -228,17 +228,15 @@ chmod +x install.sh
 The script will:
 1. Check and install GTK system dependencies (`python3-gobject`, `gtk4`)
 2. Install Python dependencies via `pip`
-3. Create a `.desktop` entry so Seekr appears in your app menu
 
+You can start the app by typing `seekr` to the terminal. 
 
+> [!TIP]
+> **Better Usage:** For the best experience, add a **Custom Keyboard Shortcut** in your system settings (e.g., `Super + Shift + F` or `Ctrl + Space`) set to the command `seekr`. This lets you summon the search window instantly from anywhere!
 
 ## Contributing
 
-Contributions are welcome! Feel free to open issues or pull requests for:
-
-- Additional AI model backends (Ollama local, OpenAI, Gemini)
-- Packaging for other distros (Arch AUR, Debian PPA)
-
+Contributions are welcome! Feel free to open issues or pull requests.
 
 
 ## License
