@@ -1,86 +1,144 @@
 import os
 import sqlite3
+import threading
+import time
 from app.storage.db import DB_PATH
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
-# Folders to scan
 ALLOWED_ROOT_DIRS = {"Projects", "Desktop", "Downloads", "Music", "Videos", "Documents", "Pictures"}
-# Folders to ignore inside traversal
 EXCLUDE_DIRS = {".cache", ".git", "node_modules", "__pycache__", ".venv", "venv", "env", ".local", ".config"}
 
-# File types whose text content will be indexed for full-text search
-TEXT_EXTENSIONS = {
-    ".py", ".txt", ".md", ".js", ".ts", ".html", ".css", ".json",
-    ".yaml", ".yml", ".xml", ".sh", ".conf", ".ini", ".cfg", ".toml",
-    ".csv", ".rs", ".go", ".c", ".cpp", ".h", ".java", ".rb", ".php",
-    ".jsx", ".tsx", ".vue", ".sql", ".r", ".kt", ".swift",
-}
+def get_base_dirs():
+    home = os.path.expanduser("~")
+    dirs = []
+    for folder_name in ALLOWED_ROOT_DIRS:
+        base_path = os.path.join(home, folder_name)
+        if os.path.isdir(base_path):
+            dirs.append(base_path)
+    return dirs
 
-# Maximum file size to read content from (512 KB)
-SIZE_LIMIT_BYTES = 512 * 1024
-
-
-def _read_content(path: str, size: int) -> str:
-    """Read file content for indexing. Returns empty string for binary/large files."""
-    ext = os.path.splitext(path)[1].lower()
-    if ext not in TEXT_EXTENSIONS or size > SIZE_LIMIT_BYTES:
-        return ""
+def _upsert_file(cursor, path):
+    """Insert or update a single file in the DB without checking mtime first."""
     try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
-    except Exception:
-        return ""
+        if any(exc in path for exc in EXCLUDE_DIRS):
+            return
+        size = os.path.getsize(path)
+        mtime = os.path.getmtime(path)
+        filename = os.path.basename(path)
+        ext = os.path.splitext(filename)[1].lower()
+        folder = os.path.dirname(path)
 
+        cursor.execute('''
+            INSERT OR REPLACE INTO files (filename, path, ext, folder, mtime, size)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (filename, path, ext, folder, mtime, size))
+    except Exception:
+        pass
+
+def _delete_file(cursor, path):
+    try:
+        cursor.execute("DELETE FROM files WHERE path = ?", (path,))
+    except Exception:
+        pass
+
+# --- FAST STARTUP SYNC ---
 
 def build_index():
+    """Ultra-fast initial sync. Preloads DB mtimes to avoid millions of SELECTs."""
+    print("🚀 Starting fast DB sync...")
+    start_t = time.time()
+    
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    home = os.path.expanduser("~")
-    indexed_paths = set()  # Track what we saw during this scan
-
-    for folder_name in ALLOWED_ROOT_DIRS:
-        base_path = os.path.join(home, folder_name)
-        if not os.path.exists(base_path):
-            continue
-
+    # Preload existing DB state: path -> mtime
+    cursor.execute("SELECT path, mtime FROM files")
+    db_state = {row[0]: row[1] for row in cursor.fetchall()}
+    indexed_paths = set()
+    
+    inserts = []
+    
+    for base_path in get_base_dirs():
         for root, dirs, files in os.walk(base_path):
             dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
-
+            
             for file in files:
                 path = os.path.join(root, file)
                 indexed_paths.add(path)
-
+                
                 try:
                     mtime = os.path.getmtime(path)
-                    size  = os.path.getsize(path)
-
-                    # Smart skip: only reindex if mtime changed
-                    cursor.execute("SELECT mtime FROM files WHERE path = ?", (path,))
-                    result = cursor.fetchone()
-                    if result and result[0] == mtime:
-                        continue
-
-                    ext     = os.path.splitext(file)[1].lower()
-                    content = _read_content(path, size)
-
-                    cursor.execute('''
-                        INSERT OR REPLACE INTO files (filename, path, ext, folder, content, mtime, size)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ''', (file, path, ext, root, content, mtime, size))
-
+                    # Sync only if completely new, or modified
+                    if path not in db_state or db_state[path] != mtime:
+                        size = os.path.getsize(path)
+                        filename = file
+                        ext = os.path.splitext(filename)[1].lower()
+                        inserts.append((filename, path, ext, root, mtime, size))
                 except Exception:
                     continue
 
-    conn.commit()
-
-    # Cleanup: remove DB entries for files deleted from disk
-    cursor.execute("SELECT path FROM files")
-    db_paths = [row[0] for row in cursor.fetchall()]
-
-    deleted_paths = [p for p in db_paths if p not in indexed_paths]
+    # Bulk insert new/modified files
+    if inserts:
+        cursor.executemany('''
+            INSERT OR REPLACE INTO files (filename, path, ext, folder, mtime, size)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', inserts)
+        
+    # Bulk delete paths that are no longer on disk
+    deleted_paths = [(p,) for p in db_state.keys() if p not in indexed_paths]
     if deleted_paths:
-        cursor.executemany("DELETE FROM files WHERE path = ?", [(p,) for p in deleted_paths])
-        conn.commit()
+        cursor.executemany("DELETE FROM files WHERE path = ?", deleted_paths)
 
+    conn.commit()
     conn.close()
-    print(f"✅ Smart Sync Complete! Indexed {len(indexed_paths)} files.")
+    
+    print(f"✅ Sync complete in {time.time() - start_t:.2f}s! ({len(inserts)} ops, {len(indexed_paths)} total files)")
+
+# --- WATCHDOG REALTIME SYNC ---
+
+class SeekrEventHandler(FileSystemEventHandler):
+    def __init__(self):
+        super().__init__()
+        # Isolated connection for the watchdog daemon thread
+        self.conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        self.cursor = self.conn.cursor()
+
+    def on_created(self, event):
+        if not event.is_directory:
+            _upsert_file(self.cursor, event.src_path)
+            self.conn.commit()
+
+    def on_modified(self, event):
+        if not event.is_directory:
+            _upsert_file(self.cursor, event.src_path)
+            self.conn.commit()
+
+    def on_deleted(self, event):
+        if not event.is_directory:
+            _delete_file(self.cursor, event.src_path)
+            self.conn.commit()
+
+    def on_moved(self, event):
+        if not event.is_directory:
+            _delete_file(self.cursor, event.src_path)
+            _upsert_file(self.cursor, event.dest_path)
+            self.conn.commit()
+
+def start_watchdog():
+    """Start the realtime file watcher daemon."""
+    event_handler = SeekrEventHandler()
+    observer = Observer()
+    
+    for base_path in get_base_dirs():
+        observer.schedule(event_handler, base_path, recursive=True)
+        
+    observer.start()
+    print("👀 Watchdog daemon started. Listening for file changes...")
+    
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
