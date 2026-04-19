@@ -119,7 +119,7 @@ User Query
 ### Architecture
 Seekr uses a high-performance, event-driven architecture to ensure your index is always live without draining system resources.
 
-![System Architecture](assets/achitecture_diagram.png)
+![System Architecture](assets/architecture_diagram.png)
 
 ### Indexer
 
