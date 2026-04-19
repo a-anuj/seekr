@@ -32,7 +32,10 @@ Seekr is an AI-powered file search GTK application.
 # Install app to /opt
 # -------------------------------
 mkdir -p %{buildroot}/opt/seekr
-cp -r * %{buildroot}/opt/seekr/
+cp -r app %{buildroot}/opt/seekr/
+cp -r assets %{buildroot}/opt/seekr/
+cp LICENSE %{buildroot}/opt/seekr/
+cp README.md %{buildroot}/opt/seekr/
 
 # -------------------------------
 # CLI launcher (IMPORTANT)

@@ -27,8 +27,13 @@ jobs:
       - name: Package Tarball
         run: |
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          # We pack the current dir (.) into the specific tar name requested by seekr.spec
-          tar --exclude="./.git" --exclude="./.github" -czvf ~/rpmbuild/SOURCES/seekr-${VERSION}.tar.gz .
+          # Create a directory with the name RPM expects, then tar it
+          mkdir seekr-${VERSION}
+          cp -r . seekr-${VERSION}/
+          # Cleanup the nested folder and unwanted git files before taring
+          rm -rf seekr-${VERSION}/seekr-${VERSION}
+          tar --exclude="*/.git" --exclude="*/.github" -czvf ~/rpmbuild/SOURCES/seekr-${VERSION}.tar.gz seekr-${VERSION}
+          rm -rf seekr-${VERSION}
       
       - name: Copy Spec File
         run: cp seekr.spec ~/rpmbuild/SPECS/
