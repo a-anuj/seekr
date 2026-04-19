@@ -11,13 +11,6 @@ _SIZE_UNITS = {
     "gb": 1024 ** 3, "gigabyte": 1024 ** 3, "gigabytes": 1024 ** 3,
 }
 
-# Trigger phrases that signal "search inside file content"
-_CONTENT_TRIGGERS = [
-    "containing ", "with text ", "that says ", "mentioning ",
-    "that has ", "with content ", "that contains ",
-]
-
-
 def parse_query(query: str) -> dict:
     q = query.lower()
     size_info = extract_size_filter(q)
@@ -25,7 +18,6 @@ def parse_query(query: str) -> dict:
         "name":      "",
         "ext":       extract_extension(q),
         "time":      extract_time(q),
-        "content":   extract_content(query),   # preserve original case for content search
         "size_sort": size_info["size_sort"],
         "size_min":  size_info["size_min"],
         "size_max":  size_info["size_max"],
@@ -83,23 +75,6 @@ def extract_time(query: str):
         start = today_start - timedelta(days=2)
         return (start, today_start - timedelta(days=1))
 
-    return None
-
-
-def extract_content(query: str) -> str | None:
-    """
-    Detect a content-search trigger phrase and return the keyword(s) after it.
-    Preserves original casing for accurate FTS5 matching.
-    Examples:
-        "python files containing import pandas" → "import pandas"
-        "files mentioning GigArmor"             → "GigArmor"
-    """
-    q_lower = query.lower()
-    for trigger in _CONTENT_TRIGGERS:
-        idx = q_lower.find(trigger)
-        if idx != -1:
-            keyword = query[idx + len(trigger):].strip()
-            return keyword if keyword else None
     return None
 
 

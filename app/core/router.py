@@ -17,9 +17,7 @@ def is_strong(filters):
         score += 2
     if filters.get("name"):
         score += 2
-    # Content and size filters are strong deterministic signals — no AI needed
-    if filters.get("content"):
-        score += 3
+    # Size filters are strong deterministic signals — no AI needed
     if filters.get("size_sort"):
         score += 3
     if filters.get("size_min") is not None:
